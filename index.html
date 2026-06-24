@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Basic Calculator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f5f5f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1c1c1a; }
+      .calc { background: #2c2c2a; border-color: #444441; }
+      .display { background: #1c1c1a; border-color: #444441; }
+      .display-val { color: #f0ece4; }
+      .display-expr { color: #888780; }
+      .btn { background: #2c2c2a; color: #f0ece4; border-color: #444441; }
+      .btn:hover { background: #3a3a38; }
+      .btn:active { background: #444441; }
+      .btn.op { background: #0c2e4a; color: #85b7eb; border-color: #185fa5; }
+      .btn.eq { border-color: #185fa5; color: #85b7eb; }
+      .btn.eq:hover { background: #0c2e4a; }
+      .btn.clear { color: #f09595; border-color: #a32d2d; }
+      .btn.clear:hover { background: #2d1414; }
+      .btn.util { color: #888780; }
+    }
+    .calc {
+      background: #ffffff;
+      border: 0.5px solid #d3d1c7;
+      border-radius: 16px;
+      padding: 24px;
+      width: 320px;
+    }
+    .display {
+      background: #f1efe8;
+      border: 0.5px solid #d3d1c7;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      min-height: 88px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: flex-end;
+      overflow: hidden;
+    }
+    .display-expr { font-size: 13px; color: #888780; min-height: 18px; word-break: break-all; text-align: right; }
+    .display-val { font-size: 36px; font-weight: 500; color: #2c2c2a; word-break: break-all; text-align: right; line-height: 1.2; }
+    .display-val.error { font-size: 15px; color: #a32d2d; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .btn {
+      height: 64px;
+      min-width: 44px;
+      border: 0.5px solid #b4b2a9;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #2c2c2a;
+      font-size: 18px;
+      font-weight: 400;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.1s, transform 0.08s;
+      user-select: none;
+      font-family: inherit;
+    }
+    .btn:hover { background: #f1efe8; }
+    .btn:active { transform: scale(0.95); background: #d3d1c7; }
+    .btn.op { color: #185fa5; border-color: #378add; background: #e6f1fb; }
+    .btn.op:hover { background: #cce2f8; }
+    .btn.eq { background: #ffffff; border: 2px solid #378add; color: #185fa5; font-weight: 500; }
+    .btn.eq:hover { background: #e6f1fb; }
+    .btn.clear { color: #a32d2d; border-color: #e24b4a; }
+    .btn.clear:hover { background: #fcebeb; }
+    .btn.util { color: #5f5e5a; }
+    .btn.span2 { grid-column: span 2; }
+  </style>
+</head>
+<body>
+  <div class="calc" role="application" aria-label="Calculator">
+    <div class="display" aria-live="polite" aria-atomic="true">
+      <div class="display-expr" id="expr"></div>
+      <div class="display-val" id="disp">0</div>
+    </div>
+    <div class="grid">
+      <button class="btn clear" onclick="clearAll()" aria-label="Clear all">C</button>
+      <button class="btn util" onclick="backspace()" aria-label="Backspace">⌫</button>
+      <button class="btn util" onclick="inputOp('%')" aria-label="Percent">%</button>
+      <button class="btn op" onclick="inputOp('÷')" aria-label="Divide">÷</button>
+
+      <button class="btn" onclick="inputDigit('7')">7</button>
+      <button class="btn" onclick="inputDigit('8')">8</button>
+      <button class="btn" onclick="inputDigit('9')">9</button>
+      <button class="btn op" onclick="inputOp('×')" aria-label="Multiply">×</button>
+
+      <button class="btn" onclick="inputDigit('4')">4</button>
+      <button class="btn" onclick="inputDigit('5')">5</button>
+      <button class="btn" onclick="inputDigit('6')">6</button>
+      <button class="btn op" onclick="inputOp('−')" aria-label="Subtract">−</button>
+
+      <button class="btn" onclick="inputDigit('1')">1</button>
+      <button class="btn" onclick="inputDigit('2')">2</button>
+      <button class="btn" onclick="inputDigit('3')">3</button>
+      <button class="btn op" onclick="inputOp('+')" aria-label="Add">+</button>
+
+      <button class="btn span2" onclick="inputDigit('0')">0</button>
+      <button class="btn" onclick="inputDecimal()">.</button>
+      <button class="btn eq" onclick="calculate()" aria-label="Equals">=</button>
+    </div>
+  </div>
+
+  <script>
+    let current = '0', prev = '', op = null, justCalc = false, expr = '';
+    const disp = document.getElementById('disp');
+    const exprEl = document.getElementById('expr');
+
+    function updateDisplay(val, isErr) {
+      disp.textContent = val;
+      disp.className = 'display-val' + (isErr ? ' error' : '');
+      exprEl.textContent = expr;
+    }
+    function inputDigit(d) {
+      if (justCalc) { current = d; expr = ''; justCalc = false; }
+      else if (current === '0') current = d;
+      else current += d;
+      updateDisplay(format(current));
+    }
+    function inputDecimal() {
+      if (justCalc) { current = '0.'; justCalc = false; }
+      else if (!current.includes('.')) current += '.';
+      updateDisplay(current);
+    }
+    function inputOp(o) {
+      if (op && !justCalc && prev !== '') {
+        const res = compute(); if (res === null) return;
+        prev = String(res); current = '0';
+      } else { prev = current; current = '0'; }
+      op = o; justCalc = false;
+      expr = format(prev) + ' ' + op;
+      updateDisplay(format(prev));
+    }
+    function compute() {
+      const a = parseFloat(prev), b = parseFloat(current);
+      if (op === '÷' && b === 0) {
+        expr = ''; updateDisplay('Cannot divide by zero', true);
+        op = null; prev = ''; current = '0'; return null;
+      }
+      let r;
+      if (op === '+') r = a + b;
+      else if (op === '−') r = a - b;
+      else if (op === '×') r = a * b;
+      else if (op === '÷') r = a / b;
+      else if (op === '%') r = a % b;
+      else r = b;
+      return parseFloat(parseFloat(r.toPrecision(10)).toFixed(10).replace(/\.?0+$/, '')) || 0;
+    }
+    function calculate() {
+      if (!op || prev === '') return;
+      const bVal = current;
+      expr = format(prev) + ' ' + op + ' ' + format(bVal) + ' =';
+      const res = compute(); if (res === null) return;
+      current = String(res); op = null; prev = ''; justCalc = true;
+      updateDisplay(format(current));
+    }
+    function clearAll() { current = '0'; prev = ''; op = null; justCalc = false; expr = ''; updateDisplay('0'); }
+    function backspace() {
+      if (justCalc) return;
+      current = current.length > 1 ? current.slice(0, -1) : '0';
+      updateDisplay(format(current));
+    }
+    function format(v) {
+      if (!v) return '';
+      const n = parseFloat(v);
+      if (isNaN(n)) return v;
+      if (String(v).endsWith('.')) return v;
+      return n.toLocaleString('en-IN', { maximumFractionDigits: 10 });
+    }
+    document.addEventListener('keydown', e => {
+      if (e.key >= '0' && e.key <= '9') inputDigit(e.key);
+      else if (e.key === '.') inputDecimal();
+      else if (e.key === '+') inputOp('+');
+      else if (e.key === '-') inputOp('−');
+      else if (e.key === '*') inputOp('×');
+      else if (e.key === '/') { e.preventDefault(); inputOp('÷'); }
+      else if (e.key === '%') inputOp('%');
+      else if (e.key === 'Enter' || e.key === '=') calculate();
+      else if (e.key === 'Backspace') backspace();
+      else if (e.key === 'Escape') clearAll();
+    });
+  </script>
+</body>
+</html>
